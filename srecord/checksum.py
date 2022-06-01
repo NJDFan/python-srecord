@@ -6,13 +6,13 @@ bytes as words, and performs various and sundry math on them,
 returning the result as an integer.  The SparseData is
 unchanged by checksumming.
 
-All checksum functions follow the prototype
+All checksum functions follow the prototype::
 
 	result = checksumfunction(sdata, **kwargs)
 
 All checksum functions respect the following parameters, which
 will be read from the global srecord settings if they are not
-be passed in as keyword arguments:
+be passed in as keyword arguments::
 
 	endian (default LE)
 		settings.LE or settings.BE for little and big-endian

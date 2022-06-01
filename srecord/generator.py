@@ -6,7 +6,7 @@ then be added into other SparseData.
 Constant Generators
 ====================
 
-Constant generators all follow the prototype:
+Constant generators all follow the prototype::
 
 	sdata = constantgen(address, data, **kwargs)
 	
