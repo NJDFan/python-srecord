@@ -17,6 +17,9 @@ import itertools
 from . import settings
 settings.set(collision_error = True)
 
+from warnings import warn
+from typing import List, Sequence
+
 # Various exceptions.
 class CollisionError(Exception): pass
 class NonContiguousError(Exception): pass
@@ -85,10 +88,19 @@ class DataChunk(bytearray):
 class SparseData:
 	"""
 	Holds sparse binary data as a sorted list of DataChunks.
+	
+	Args:
+		*args: Data chunks to be collected together.
+		collision_error (bool): Override the global collision_error setting
+			when creating this object.
+	
+	Attributes:
+		collision_error (bool): If True, generate a CollisionError
+			when adding a chunk of data that overlaps existing data.
 	"""
 	
-	def __init__(self, *args, **kwargs):
-		self._collision_error = settings.get('collision_error', kwargs)
+	def __init__(self, *args:DataChunk, **kwargs):
+		self.collision_error = settings.get('collision_error', kwargs)
 		self._data = list()
 		self.add(*args)
 		
@@ -135,7 +147,7 @@ class SparseData:
 				# d is neither entirely higher nor entirely
 				# lower than chunk.  That means it must
 				# overlap.
-				if self._collision_error:
+				if self.collision_error:
 					raise CollisionError("Collision against {0!r} while adding {1!r}".format(d, chunk))
 					
 				# If we're not going to raise an exception, then
@@ -153,12 +165,14 @@ class SparseData:
 		self._data[lbound:ubound] = [ chunk ]
 			
 	def set_collision_error(self, boolean):
-		self._collision_error = bool(boolean)
+		warn("Use obj.collision_error = x rather than obj.set_collision_error(x)", DeprecationWarning, stacklevel=2)
+		self.collision_error = bool(boolean)
 		
 	def get_collision_error(self):
-		return self._collision_error
+		warn("Use obj.collision_error rather than obj.get_collision_error()", DeprecationWarning, stacklevel=2)
+		return self.collision_error
 			
-	def add(self, *args):
+	def add(self, *args:DataChunk):
 		"""
 		Add one or more DataChunks into the list.  Adjacent chunks
 		will be merged.  Overlapping chunks will allow the latest
@@ -188,13 +202,15 @@ class SparseData:
 		"""DataChunks can be deleted, but not simply replaced."""
 		del self._data[key]
 		
-	def start(self):
+	def start(self) -> int:
+		"""The first address of the first chunk of data."""
 		try:
 			return self._data[0].start()
 		except IndexError:
 			return None
 			
-	def end(self):
+	def end(self) -> int:
+		"""The last address of the last chunk of data."""
 		try:
 			return self._data[-1].end()
 		except IndexError:

@@ -31,7 +31,7 @@ setup(
     description="Binary image building tools for embedded software",
     long_description=long_description,
     long_description_content_type="text/x-rst",
-    url="https://github.com/pypa/sampleproject",
+    url="https://github.com/NJDFan/python-srecord",
     author="Rob Gaddi",
     author_email="rgaddi@highlandtechnology.com",
       

@@ -19,7 +19,7 @@ from .core import *
 from . import settings
 
 class _SrecordDataOutput(object):
-	def __init__(self, sdata, filename=None):
+	def __init__(self, sdata:SparseData, filename:str=None):
 		"""
 		Create a new output writer.
 		
@@ -30,7 +30,7 @@ class _SrecordDataOutput(object):
 		if filename:
 			self.write(filename)
 		
-	def write(self, filename):
+	def write(self, filename:str):
 		"""Write the data out to the target file.""" 
 		raise NotImplementedError
 		
@@ -53,13 +53,31 @@ class BinaryOutput(_SrecordDataOutput):
 class SrecOutput(_SrecordDataOutput):
 	"""
 	Represents a file to written out as S-record data.
+	
+	Args:
+		sdata: The data to be written to the S-record file.
+		
+		filename: Shortcut to immediately call write() against this file.
+		
+		header: If provided, can be either a string, bytes or a dict containing
+			string 'mname', 'ver', 'rev', and optional 'description' fields.
+			Generates an S0 header field.
+			
+		address_bytes: 2-4 to specify the number of bytes in address fields.
+			If None, autodetects based on highest address needed for sdata.
+			
+		start_address: If provided, adds an execution start address record
+			(S7-9) into the S-record file.
+			
+		bytes_per_line: Maximum number of data bytes per line.
+	
 	"""
 	
-	def __init__(self, sdata, filename=None,
-					address_bytes=None,
+	def __init__(self, sdata:SparseData, filename:str=None,
+					address_bytes:int=None,
 					header=None,
-					start_address=None,
-					bytes_per_line=32
+					start_address:int=None,
+					bytes_per_line:int=32
 					):
 						
 		if address_bytes is None:
@@ -71,14 +89,30 @@ class SrecOutput(_SrecordDataOutput):
 				self.address_bytes = 4
 		elif address_bytes in (2, 3, 4):
 			self.address_bytes = address_bytes
-			
 		else:
 			raise ValueError("address_bytes must be 2-4, or None to autosize")
 			
 		if header is None:
-			self.header = []
-		else:
+			self.header = None
+		elif isinstance(header, (bytes, bytearray)):
 			self.header = header
+		elif isinstance(header, str):
+			self.header = header.encode()
+		elif isinstance(header, dict):
+			knownkeys = ('mname', 'ver', 'rev', 'description')
+			unknown = set(header) - set(knownkeys)
+			if unknown:
+				raise ValueError("unknown header keys: " + ','.join(unknown))
+			
+			bh = {k : v.encode() for (k, v) in header.items()}
+			if 'description' not in bh:
+				bh['description'] = b''
+				
+			dlen = min(len(bh['description']), 36)
+			self.header = struct.pack('20s2s2s{}s'.format(dlen),
+				*(bh[k] for f in knownkeys)
+			)
+		
 		self.start_address = start_address
 		self.bytes_per_line = bytes_per_line
 						
@@ -123,11 +157,8 @@ class SrecOutput(_SrecordDataOutput):
 		# And actually write out the file
 		with open(filename, 'w') as f:
 			# Start with header records
-			for (addr, rec) in enumerate(self.header):
-				print("S0" + self._make_srec(
-								struct.pack(">H", addr) +
-								bytearray(rec)
-							), file=f)
+			if self.header:
+				print("S0" + self._make_srec(b'0000' + bytearray(self.header)), file=f)
 				
 			# Now data records
 			stype = "S{0}".format(self.address_bytes - 1)

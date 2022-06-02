@@ -8,6 +8,7 @@ import itertools
 import os
 import re
 import pdb
+import struct
 
 from . import *
 from .core import *
@@ -35,7 +36,7 @@ class CoreTest(unittest.TestCase):
 		self.dc1 = DataChunk(0x0, range(255))
 		self.dc2 = DataChunk(0x1000, range(255,-1,-1))
 		
-		self.lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+		self.lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.".encode('utf-8')
 		self.dc3 = DataChunk(0x2000, self.lorem)
 
 		self.sdata = SparseData(self.dc1, self.dc3)
@@ -85,12 +86,12 @@ class CoreTest(unittest.TestCase):
 		self.assertEqual(self.sdata.end(), self.dc2.end())
 		
 	def test_CollisionRaise(self):
-		dc = DataChunk(0xFFE, "And BOOM goes the rocket ship.")
+		dc = DataChunk(0xFFE, "And BOOM goes the rocket ship.".encode())
 		self.assertRaises(CollisionError, self.sdata.add, dc)
 		
 	def test_CollisionOkayLocal(self):
-		dc = DataChunk(0xFFE, "And BOOM goes the rocket ship.")
-		self.sdata.set_collision_error(False)
+		dc = DataChunk(0xFFE, "And BOOM goes the rocket ship.".encode())
+		self.sdata.collision_error = False
 		self.sdata.add(dc)
 		self.assertEqual(self.sdata[1].start(), 0xFFE)
 		self.assertEqual(self.sdata[1].end(), 0x1100)
@@ -98,7 +99,7 @@ class CoreTest(unittest.TestCase):
 	def test_CollisionGlobal(self):
 		settings.set(collision_error = False)
 		sdata = SparseData()
-		self.assertFalse(sdata.get_collision_error())
+		self.assertFalse(sdata.collision_error)
 
 class FileformatTest(unittest.TestCase):
 	"""Test the input and output file classes against each other."""
@@ -126,20 +127,20 @@ class FileformatTest(unittest.TestCase):
 			self.assertEqual(match, line.strip())
 	
 	def test_S19(self):
-		sro = output.SrecOutput(self.sdata, 'test.s19', header=['Test with 2 address bytes.'])
+		sro = output.SrecOutput(self.sdata, 'test.s19', header='Test with 2 address bytes.')
 		self.assertEqual(sro.address_bytes, 2)
 		self.checkSecondLine('test.s19', 'S12300000000000100020003000400050006000700080009000A000B000C000D000E000F64')
 		self.checkSparseData(input.SrecInput('test.s19'))
 		os.remove('test.s19')
 		
 	def test_S28(self):
-		output.SrecOutput(self.sdata, 'test.s28', address_bytes=3, header=['Test with 3 address bytes.'])
+		output.SrecOutput(self.sdata, 'test.s28', address_bytes=3, header='Test with 3 address bytes.')
 		self.checkSecondLine('test.s28', 'S2240000000000000100020003000400050006000700080009000A000B000C000D000E000F63')
 		self.checkSparseData(input.SrecInput('test.s28'))
 		os.remove('test.s28')
 		
 	def test_S37(self):
-		output.SrecOutput(self.sdata, 'test.s37', address_bytes=4, header=['Test with 4 address bytes.'])
+		output.SrecOutput(self.sdata, 'test.s37', address_bytes=4, header='Test with 4 address bytes.')
 		self.checkSecondLine('test.s37', 'S325000000000000000100020003000400050006000700080009000A000B000C000D000E000F62')
 		self.checkSparseData(input.SrecInput('test.s37'))
 		os.remove('test.s37')
@@ -149,9 +150,9 @@ class FileformatTest(unittest.TestCase):
 		self.sdata = generator.fill(self.sdata, self.sdata.start(), self.sdata.end(), 0xFFFF)
 		
 		output.BinaryOutput(self.sdata, 'test.bin')
-		with open('test.bin', 'r') as f:
+		with open('test.bin', 'rb') as f:
 			chunk = f.read(256)
-			self.assertEqual(chunk, ''.join('\0' + chr(x) for x in range(128)))
+			self.assertEqual(chunk, struct.pack('>128H', *range(128)))
 		
 		self.checkSparseData(input.BinaryInput('test.bin'))
 		os.remove('test.bin')
@@ -183,6 +184,17 @@ class GeneratorTest(unittest.TestCase):
 		self.assertEqual(sdata[0].end(),		0x2400)
 		self.assertEqual(sdata[0][100:104],	bytearray([0, 0, 0, 25]))
 		
+	def test_constantBytes(self):
+		sdata = generator.constant(0x2000, b"The quick brown fox jumps over the lazy dogs.")
+		self.assertEqual(len(sdata),			1)
+		self.assertEqual(sdata[0].start(),		0x2000)
+		self.assertEqual(sdata[0].end(),		0x2000 + 45)
+		
+		self.assertEqual(
+			bytearray(sdata[0][4:9]),
+			b'quick'
+		)
+		
 	def test_constantString(self):
 		sdata = generator.constantString(0x2000, "The quick brown fox jumps over the lazy dogs.")
 		self.assertEqual(len(sdata),			1)
@@ -190,7 +202,7 @@ class GeneratorTest(unittest.TestCase):
 		self.assertEqual(sdata[0].end(),		0x2000 + 45)
 		
 		self.assertEqual(
-			str(bytearray(sdata[0][4:9])),
+			bytearray(sdata[0][4:9]).decode(),
 			'quick'
 		)
 		
@@ -219,11 +231,11 @@ class FillTest(unittest.TestCase):
 		)
 		self.assertEqual(
 			getAddressRange(self.sdata, 0x200, 69),
-			bytearray('Now is the time for all good men to come to the aid of their country.')
+			bytearray(b'Now is the time for all good men to come to the aid of their country.')
 		)
 		self.assertEqual(
 			getAddressRange(self.sdata, 0x300, 46),
-			bytearray('The quick brown fox jumped over the lazy dogs.')
+			bytearray(b'The quick brown fox jumped over the lazy dogs.')
 		)
 
 	def test_fillLowOverlap(self):
@@ -242,7 +254,7 @@ class FillTest(unittest.TestCase):
 		)
 		
 	def test_fillCompleteOverlap(self):
-		self.sdata = generator.fill(self.sdata, 0, 0x400, "SPOON!")
+		self.sdata = generator.fill(self.sdata, 0, 0x400, b"SPOON!")
 		self.checkSpans(
 			(0, 0x400)
 		)
@@ -265,7 +277,7 @@ class FillTest(unittest.TestCase):
 		self.assertEqual(self.sdata[1], bytearray(range(0x40)))
 		
 	def test_fillLineup(self):
-		self.sdata = generator.fill(self.sdata, 0x200, 0x300, "SPOON!")
+		self.sdata = generator.fill(self.sdata, 0x200, 0x300, b"SPOON!")
 		self.checkSpans(
 			(0x100, 0x108),
 			(0x200, 0x32E)
@@ -399,12 +411,16 @@ class TestTransforms(unittest.TestCase):
 				x += 4
 				
 	def test_rll0(self):
+		# import ipdb; ipdb.set_trace()
 		sdata = generator.constantString(0x1000, "Hello" + ('\0' * ord('_')) + "World")
 		sdata.add(generator.constant8(0x2000, range(1, 101)))
 		sdata = transform.rll0(sdata)
 		
 		self.assertEqual(sdata.start(), 0x1000)
-		self.assertEqual(str(sdata[0]), "Hello\0_World")
+		self.assertEqual(sdata[0], b"Hello\0_World")
 		
 		self.assertEqual(sdata[1].start(), 0x2000)
 		self.assertEqual(sdata[1].end(), 0x2000 + 100)
+
+if __name__ == '__main__':
+	unittest.main()

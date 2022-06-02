@@ -32,7 +32,10 @@ from .core import *
 from . import settings
 settings.set(endian = settings.LE)
 
-def constant8(address, data, **kwargs):
+from typing import Union, Sequence
+_ints = Union[int, Sequence[int]]
+
+def constant8(address, data:_ints, **kwargs):
 	"""
 	8-bit integer constant.
 	
@@ -50,7 +53,7 @@ def constant8(address, data, **kwargs):
 	
 	return SparseData(DataChunk(address, bindata))
 	
-def constant16(address, data, **kwargs):
+def constant16(address, data:_ints, **kwargs):
 	"""
 	16-bit integer constant.
 	
@@ -61,7 +64,7 @@ def constant16(address, data, **kwargs):
 	endian = settings.get('endian', kwargs)
 	packer = struct.Struct(settings.pack_string(endian, 2))
 	try:
-		bindata = ''.join(packer.pack(x) for x in data)
+		bindata = b''.join(packer.pack(x) for x in data)
 		
 	except TypeError:
 		# Not iterable.  Okay, sure.
@@ -69,7 +72,7 @@ def constant16(address, data, **kwargs):
 	
 	return SparseData(DataChunk(address, bindata))
 	
-def constant32(address, data, **kwargs):
+def constant32(address, data:_ints, **kwargs):
 	"""
 	32-bit integer constant.
 	
@@ -80,7 +83,7 @@ def constant32(address, data, **kwargs):
 	endian = settings.get('endian', kwargs)
 	packer = struct.Struct(settings.pack_string(endian, 4))
 	try:
-		bindata = ''.join(packer.pack(x) for x in data)
+		bindata = b''.join(packer.pack(x) for x in data)
 		
 	except TypeError:
 		# Not iterable.  Okay, sure.
@@ -88,16 +91,26 @@ def constant32(address, data, **kwargs):
 	
 	return SparseData(DataChunk(address, bindata))
 
-def constantString(address, data, **kwargs):
+def constant(address, data:bytes, encoding='ascii', **kwargs):
 	"""
-	String constant.
+	Binary data constant.
 	
-	Returns 1 byte per string character.
+	Returns 1 byte per byte.
 	
 	"""
 	return SparseData(DataChunk(address, data))
+	
+def constantString(address, data:str, encoding:str='ascii', **kwargs):
+	"""
+	String constant.
+	
+	With the default ASCII encoding, returns 1 byte per string character.
+	Other encodings may use more, or variable, bytes.
+	
+	"""
+	return SparseData(DataChunk(address, data.encode(encoding)))
 
-def fill(sdata, start, end, source, **kwargs):
+def fill(sdata, start:int, end:int, source, **kwargs):
 	"""
 	Create a copy of sdata, with all gaps between start and end filled from source.
 	
@@ -115,7 +128,12 @@ def fill(sdata, start, end, source, **kwargs):
 	
 	sdata = copy.deepcopy(sdata)
 	
-	if isinstance(source, str):
+	if isinstance(source, bytes):
+		def block(addr, length):
+			seq = itertools.cycle(source)
+			return constant(addr, itertools.islice(seq, length), **kwargs)
+	
+	elif isinstance(source, str):
 		def block(addr, length):
 			seq = itertools.cycle(source)
 			return constantString(addr, itertools.islice(seq, length), **kwargs)

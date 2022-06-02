@@ -124,7 +124,7 @@ def _checksum(wordsize):
 					if (r != 0) and iwc:
 						raise NonIntegerWordCountError("Can't divide into {0} byte pieces.".format(wordsize), chunk)
 						
-					for data in struct.unpack(root.format(q), str(chunk[0:(len(chunk)-r)])):
+					for data in struct.unpack(root.format(q), bytes(chunk[0:(len(chunk)-r)])):
 						yield data
 				
 			return fn(chunk_maker(sdata, root, settings.get('force_integer_wordcount', kwargs)))
