@@ -15,7 +15,6 @@ import copy
 import itertools
 
 from . import settings
-settings.set(collision_error = True)
 
 from warnings import warn
 from typing import List, Sequence

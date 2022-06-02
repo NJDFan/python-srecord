@@ -30,7 +30,6 @@ import copy
 
 from .core import *
 from . import settings
-settings.set(endian = settings.LE)
 
 from typing import Union, Sequence
 _ints = Union[int, Sequence[int]]

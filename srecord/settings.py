@@ -55,7 +55,12 @@ _endian_char = {
 ########################################################################
 # Parameters
 
-_settings = {}
+_settings = {
+	'endian' : LE,
+	'collision_error' : True,
+	'force_contiguous_checksum' : True,
+	'force_integer_wordcount' : True
+}
 
 ########################################################################
 # Fancy functions

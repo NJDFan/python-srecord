@@ -143,6 +143,15 @@ other Python package.
 .. code-block:: console
 
    $ python3 -m pip install srecord
+   
+Unit Tests
+==========
+
+The srecord package includes a suite of unit tests.
+
+.. code-block:: console
+
+   $ python3 -m srecord.test
 
 Indices and tables
 ==================

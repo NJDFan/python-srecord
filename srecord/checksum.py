@@ -32,8 +32,8 @@ be passed in as keyword arguments::
 		be fit into an integer number of words will throw a 
 		NonIntegerWordCountError.
 		
-		For example, sum32 checksums data as 4-byte halfwords.  This
-		settings will cause SparseData containing any DataChunk that is
+		For example, sum32 checksums data as 4-byte words.  This
+		setting will cause SparseData containing any DataChunk that is
 		not a multiple of 4 bytes long to throw and exception.
 		
 See the settings module for more information about the global settings.
@@ -48,11 +48,6 @@ from .core import *
 
 # Configure the default settings for this module.
 from . import settings
-settings.set(
-	endian = settings.LE,
-	force_contiguous_checksum = True,
-	force_integer_wordcount = True
-)
 
 def length(sdata, **kwargs):
 	"""
