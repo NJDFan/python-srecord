@@ -20,11 +20,11 @@ from .core import *
 import copy
 import itertools
 
-def duplicate(sdata):
+def duplicate(sdata:SparseData):
 	"""Make a deep copy of sdata."""
 	return copy.deepcopy(sdata)
 	
-def crop(sdata, start, end):
+def crop(sdata:SparseData, start:int, end:int):
 	"""Slice out only the portion of sdata that lies between start and end."""
 	
 	def address_slice(dc):
@@ -38,7 +38,7 @@ def crop(sdata, start, end):
 	
 	return SparseData(address_slice(x) for x in sdata)
 	
-def offset(sdata, offset):
+def offset(sdata:SparseData, offset:int):
 	"""
 	Move sdata in memory.  A positive offset will add to all of the addresses,
 	a negative offset will subtract from them.  Addresses can be increased
@@ -53,7 +53,7 @@ def offset(sdata, offset):
 		chunk.base = new_base
 	return sdata
 
-def _bit_reverse(x):
+def _bit_reverse(x:int):
 	"""Reverse the bits in a byte."""
 	x = ((x & 0xAA) >> 1) | ((x & 0x55) << 1)
 	x = ((x & 0xCC) >> 2) | ((x & 0x33) << 2)
@@ -62,28 +62,28 @@ def _bit_reverse(x):
 	
 _bit_reverse_table = tuple(_bit_reverse(x) for x in range(256))
 
-def bitswap(sdata):
+def bitswap(sdata:SparseData):
 	"""Reverse the bits in every byte."""
 	for chunk in sdata:
 		for i in range(len(chunk)):
 			chunk[i] = _bit_reverse_table[chunk[i]]
 	return sdata
 
-def swap16(sdata):
+def swap16(sdata:SparseData):
 	"""Flip every two bytes; a 16-bit endian translation."""
 	for chunk in sdata:
 		for st in range(0,len(chunk),2):
 			chunk[st:st+2] = reversed(chunk[st:st+2])
 	return sdata
 		
-def swap32(sdata):
+def swap32(sdata:SparseData):
 	"""Flip every four bytes; a 32-bit endian translation."""
 	for chunk in sdata:
 		for st in range(0,len(chunk),4):
 			chunk[st:st+4] = reversed(chunk[st:st+4])
 	return sdata
 	
-def rll0(sdata):
+def rll0(sdata:SparseData):
 	"""
 	Perform RLL0 compression on each block in the data.
 	
@@ -119,3 +119,12 @@ def rll0(sdata):
 		return outarray
 		
 	return SparseData(compress(c) for c in sdata)
+
+def concat(*args:SparseData):
+	"""Build a single image from multiple image fragments.
+	
+	This allows for a slightly more functional flow than starting with
+	one SparseData and mutating it with SparseData.add() over and over.
+	"""
+	
+	return SparseData(*args)

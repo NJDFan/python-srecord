@@ -411,7 +411,6 @@ class TestTransforms(unittest.TestCase):
 				x += 4
 				
 	def test_rll0(self):
-		# import ipdb; ipdb.set_trace()
 		sdata = generator.constantString(0x1000, "Hello" + ('\0' * ord('_')) + "World")
 		sdata.add(generator.constant8(0x2000, range(1, 101)))
 		sdata = transform.rll0(sdata)
@@ -421,6 +420,19 @@ class TestTransforms(unittest.TestCase):
 		
 		self.assertEqual(sdata[1].start(), 0x2000)
 		self.assertEqual(sdata[1].end(), 0x2000 + 100)
+
+	def test_concat(self):
+		# Create the same thing as in setup using concat
+		new = transform.concat(
+			generator.constant8(0x1000, range(256)),
+			generator.constant8(0x2000, range(256))
+		)
+		old = self.sdata
+		
+		self.assertEqual(len(new), len(old))
+		for nd, od in zip(new, old):
+			self.assertEqual(nd.start(), od.start())
+			self.assertEqual(nd, od)
 
 if __name__ == '__main__':
 	unittest.main()

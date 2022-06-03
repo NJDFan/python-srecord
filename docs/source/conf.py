@@ -12,13 +12,16 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../srecord'))
+sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information -----------------------------------------------------
 
 project = 'srecord'
 copyright = '2022, Rob Gaddi'
 author = 'Rob Gaddi'
+
+import srecord
+version = srecord.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -47,7 +50,7 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'haiku'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

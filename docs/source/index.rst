@@ -2,6 +2,8 @@
 Srecord Tools for Python
 =========================
 
+Version: |version|
+
 .. toctree::
    :maxdepth: 4
 
@@ -91,7 +93,7 @@ Address     Bytes   Contents
                     raw binary format, so it knows nothing about addresses.
 =======     =====   ========
         
-The program to do so is as follows.
+The program to do so is as follows:
 
 .. code-block:: python
 
@@ -128,6 +130,38 @@ The program to do so is as follows.
         0xFF
     )
     output.BinaryOutput(firmware_image, 'result.bin')
+    
+Or if you're not a fan of mutability, using :meth:`~srecord.transform.concat()` like:
+
+.. code-block:: python
+
+    from srecord import *
+    
+    # Ensure that we're little-endian.  This is the default.
+    settings.set(endian = settings.LE)
+
+    # Firmware
+    firmware_image = input.SrecInput().read('Release/firmware.s28')
+    fw_preamble = [0x12345678, checksum.length(firmware_image)]
+ 
+    # Bring in the FPGA data.  Binaries always start at address 0
+    fpga = input.BinaryInput().read('binaries/FPGA.rbf')
+    
+    # Generate the preamble data for the bootloader
+    base_image = transform.concat(
+        generator.constant32(0, fw_preamble),
+        transform.offset(firmware_image, 8),
+        generator.constantString(0x1000, 'FPGA'),
+        generator.constant32(0x1004, checksum.length(fpga)),
+        transform.offset(fpga, 0x1008),
+    )
+    
+    # Write out to the S-record file
+    output.SrecOutput(base_image, 'result.s28', address_bytes=3)
+    
+    # Fill in the gaps with 0xFF and write it as a binary as well.
+    base_image = generator.fill(base_image, 0xFF)
+    output.BinaryOutput(base_image, 'result.bin')
     
 Author
 =======

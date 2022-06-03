@@ -68,7 +68,6 @@ class DataChunk(bytearray):
 		return self.base + len(self)
 		
 	def __getitem__(self, item):
-		
 		retval = super(DataChunk, self).__getitem__(item)
 		
 		if isinstance(item, slice):
