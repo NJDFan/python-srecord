@@ -168,3 +168,110 @@ class SrecInput(_SrecordDataInput):
 					self._startAddress = _read_big_endian(blockdata)
 
 		return self._data
+
+class HexInput(_SrecordDataInput):
+	"""Represents an Intel hex file.
+	
+	Reference: https://en.wikipedia.org/w/index.php?title=Intel_HEX&oldid=1091252493
+	"""
+	
+	def _resetStates(self):
+		self._baseaddr = 0
+		self._eof = False
+	
+	def __init__(self, filename=None,
+					force_good_checksum=True,
+					force_good_bytecount=True,
+					eof_error=True
+					):
+		self._force_good_checksum = force_good_checksum
+		self._force_good_bytecount = force_good_bytecount
+		self._eof_error = eof_error
+		
+		self._resetStates()
+		super().__init__(filename)
+	
+	# Parser table
+	def _recorddata(self, rec):
+		addr = self._baseaddr + rec['addr']
+		self._data.add(DataChunk(addr, rec['data']))
+	
+	def _recordeof(self, rec):
+		self._eof = True
+	
+	def _recordsegaddr(self, rec):
+		if rec['dlen'] != 2:
+			raise InvalidRecord('segment address has data len {}, should be 2'.format(rec['dlen']))
+			
+		d = rec['data']
+		self._baseaddr = (d[0] << 12) | (d[1] << 4)
+		
+	def _recordstartseg(self, rec):
+		if rec['dlen'] != 4:
+			raise InvalidRecord('start segment has data len {}, should be 4'.format(rec['dlen']))
+		
+		d = rec['data']
+		self.startcs = (d[0] << 8) | d[1]
+		self.startpc = (d[2] << 8) | d[3]
+		
+	def _recordlinaddr(self, rec):
+		if rec['dlen'] != 2:
+			raise InvalidRecord('segment address has data len {}, should be 2'.format(rec['dlen']))
+			
+		d = rec['data']
+		self._baseaddr = (d[0] << 24) | (d[1] << 16)
+		
+	def _recordstartlin(self, rec):
+		if rec['dlen'] != 4:
+			raise InvalidRecord('start segment has data len {}, should be 4'.format(rec['dlen']))
+		
+		d = rec['data']
+		self.startpc = (d[0] << 24) | (d[1] << 16) | (d[2] << 8) | d[3]
+	
+	def read(self, filename):
+		self._resetStates()
+		self._data = SparseData()
+		# Linebreaks are nice but not necessary in HEX format, so ignore them.
+		# Slurp the entire file, nuke the whitespace, and break it on the
+		# : record separator character.
+		with open(filename) as f:
+			data = re.sub(r'\s', '', f.read(), flags=re.MULTILINE)
+		
+		# Use the rec['type'] field to form a dispatch to the various
+		# parsing functions.
+		recparse = {
+			0 : self._recorddata,
+			1 : self._recordeof,
+			2 : self._recordsegaddr,
+			3 : self._recordstartseg,
+			4 : self._recordlinaddr,
+			5 : self._recordstartlin
+		}
+		
+		for record in data.split(':'):
+			if not record:
+				continue
+				
+			if self._eof_error and self._eof:
+				raise InvalidRecord('data past EOF record')
+			
+			b = bytes.fromhex(record)
+			rec = {
+				'dlen' : b[0],
+				'addr' : (b[1] << 8) | b[2],
+				'type' : b[3],
+				'data' : b[4:-1],
+				'cksm' : b[-1]
+			}
+			if self._force_good_checksum:
+				checksum = sum(b) & 0xFF
+				if checksum:
+					raise InvalidRecord('bad checksum')
+			
+			if self._force_good_bytecount:
+				if len(rec['data']) != rec['dlen']:
+					raise InvalidRecord('bad data length')
+					
+			recparse[rec['type']](rec)
+			
+		return self._data

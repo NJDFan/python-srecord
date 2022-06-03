@@ -200,6 +200,9 @@ class SparseData:
 		"""DataChunks can be deleted, but not simply replaced."""
 		del self._data[key]
 		
+	def __eq__(self, other):
+		return len(self) == len(other) and all(x == y for (x, y) in zip(self, other))
+		
 	def start(self) -> int:
 		"""The first address of the first chunk of data."""
 		try:

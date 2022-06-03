@@ -141,11 +141,11 @@ Or if you're not a fan of mutability, using :meth:`~srecord.transform.concat()` 
     settings.set(endian = settings.LE)
 
     # Firmware
-    firmware_image = input.SrecInput().read('Release/firmware.s28')
+    firmware_image = input.SrecInput('Release/firmware.s28').data
     fw_preamble = [0x12345678, checksum.length(firmware_image)]
  
     # Bring in the FPGA data.  Binaries always start at address 0
-    fpga = input.BinaryInput().read('binaries/FPGA.rbf')
+    fpga = input.BinaryInput('binaries/FPGA.rbf').data
     
     # Generate the preamble data for the bootloader
     base_image = transform.concat(

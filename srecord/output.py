@@ -175,3 +175,89 @@ class SrecOutput(_SrecordDataOutput):
 				a = self._make_bigendian(self.start_address)
 				print(stype + self._make_srec(a), file=f)
 					
+
+class HexOutput(_SrecordDataOutput):
+	"""
+	Represents a file to written out as Intel HEX data.
+	
+	Only the 32-bit linear addressing mode is currently supported for output.
+	Because segment addresses went out of fashion in the 1980's, and I simply
+	refuse to implement them here.  Someone else is welcome to.
+	
+	Args:
+		sdata: The data to be written to the HEX file.
+		
+		filename: Shortcut to immediately call write() against this file.
+
+		start_address: If provided, adds an execution start address record
+			into the HEX file.
+			
+		bytes_per_line: Maximum number of data bytes per line.
+	
+	"""
+	
+	def __init__(self, sdata:SparseData, filename:str=None,
+					start_address:int=None,
+					bytes_per_line:int=32
+					):
+						
+		self.start_address = start_address
+		self.bytes_per_line = bytes_per_line
+						
+		super().__init__(sdata, filename)
+	
+	def _make_record(self, address:int, type:int, data:bytes):
+		"""Return a HEX record."""
+		record = bytes([len(data), address >> 8, address & 0xFF, type]) + data
+		checksum = -sum(record) & 0xFF
+		return ':{}{:02X}'.format(record.hex().upper(), checksum)
+	
+	def _chunky(self, dc:DataChunk):
+		"""Iterate over chunks of a DataChunk.
+		
+		Yields: (highaddr, lowaddr, data) where highaddr is the upper 16-bits
+			of the address, lowaddr is the lower 16-bits of the address of the
+			start of data, and data are the data bytes.  No yielded element will 
+			cross a highaddr boundary.
+		"""
+		
+		offset = end = dc.start()
+		while end < dc.end():
+			start = end
+			end = min(dc.end(), start+self.bytes_per_line)
+			
+			sh = start >> 16
+			eh = end >> 16
+			if eh != sh:
+				end = (start | 0xFFFF) + 1
+			
+			yield (sh, start & 0xFFFF, dc[start-offset:end-offset])
+	
+	def write(self, filename):
+		if self.sdata.end() >= (2**32):
+			raise ValueError(
+				"can't express data in 32-bit addresses".format(self.address_bytes)
+			)
+
+		# And actually write out the file
+		with open(filename, 'w') as f:
+			high = None
+			for chunk in self.sdata:
+				for h, addr, data in self._chunky(chunk):
+					if h != high:
+						# Need to issue a new high address
+						high = h
+						d = bytes([h >> 8, h & 0xFF])
+						print(self._make_record(0, 4, d), file=f)
+					
+					# Write out the data record
+					print(self._make_record(addr, 0, data), file=f)
+	
+			# Next, any execution start stuff.
+			sa = self.start_address
+			if sa is not None:
+				d = bytes([(sa >> x) & 0xFF for x in (24, 16, 8, 0)])
+				print(self._make_record(0, 5, d), file=f)
+ 
+			# Finally put an EOF record.
+			print(self._make_record(0, 1, b''), file=f)

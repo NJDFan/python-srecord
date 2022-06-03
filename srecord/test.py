@@ -111,13 +111,7 @@ class FileformatTest(unittest.TestCase):
 		self.sdata.add(generator.constant8(0x3000, (random.randint(0, 255) for x in range(1024))))
 
 	def checkSparseData(self, InputRecord):
-		sdata = InputRecord.data
-		
-		self.assertEqual(len(self.sdata), len(sdata))	
-		for (n, chunk) in enumerate(self.sdata):
-			chunk2 = sdata[n]
-			self.assertEqual(chunk.start(), chunk2.start())
-			self.assertEqual(bytearray(chunk), bytearray(chunk2))
+		self.assertEqual(self.sdata, InputRecord.data)
 	
 	def checkSecondLine(self, filename, match):
 		with open(filename, 'r') as f:
